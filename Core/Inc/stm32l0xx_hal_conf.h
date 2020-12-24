@@ -24,8 +24,7 @@
 #define __STM32L0xx_HAL_CONF_H
 
 #ifdef __cplusplus
- extern "C"
- {
+ extern "C" {
 #endif
 
 /* Exported types ------------------------------------------------------------*/
@@ -49,7 +48,7 @@
 /*#define HAL_LCD_MODULE_ENABLED   */
 /*#define HAL_LPTIM_MODULE_ENABLED   */
 /*#define HAL_RNG_MODULE_ENABLED   */
-/*#define HAL_RTC_MODULE_ENABLED   */
+#define HAL_RTC_MODULE_ENABLED
 /*#define HAL_SPI_MODULE_ENABLED   */
 /*#define HAL_TIM_MODULE_ENABLED   */
 /*#define HAL_TSC_MODULE_ENABLED   */

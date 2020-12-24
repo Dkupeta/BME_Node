@@ -7,6 +7,7 @@
 
 
 #include "rfm95.h"
+#include <stdio.h>
 
 static uint32_t miState;
 
@@ -60,8 +61,8 @@ void rfm95_freq(rfm95_t *dev, uint8_t channel)
 	};
 	if (channel < sizeof(channels)/sizeof(channels[0]))
 	{
-		freq_data = channels[channel];
-		(*dev->spi_write)(dev->nss_pin_id, 0x06 | 0x80, (uint_t *)&data, sizeof(data));
+		freq_t data = channels[channel];
+		(*dev->spi_write)(dev->nss_pin_id, 0x06 | 0x80, (uint8_t *)&data, sizeof(data));
 	}
 }
 
@@ -99,7 +100,11 @@ uint8_t rfm95_init(rfm95_t *dev, uint32_t seed)
 	}
 
 	if(!max_wait)
-		putstr("dio5! ");
+	{
+		puts("dio5!");
+		//putstr("dio0 ");
+	}
+
 	// (*dev->delay)(10);
 
 	// while( rfm95_read(dev, 0x42) != 0x12 ); // check if we can communicate
@@ -205,8 +210,12 @@ uint32_t rfm95_send(rfm95_t *dev, uint8_t *buffer, uint32_t len)
 	}
 
 	if(!max_wait)
-		putstr("dio5! ");
-	//(*dev->delay)(10);
+	{
+		puts("dio5! ");
+		//putstr("dio0 ");
+		//(*dev->delay)(10);
+	}
+
 
 	//switch DIO0 to TxDone
 	rfm95_write(dev, 0x40, 0x40);
@@ -262,7 +271,10 @@ uint32_t rfm95_send(rfm95_t *dev, uint8_t *buffer, uint32_t len)
 		(*dev->delay)(1);
 	}
 	if(!max_wait)
-		putstr("dio0 ");
+	{
+		puts("dio0 ");
+		//putstr("dio0 ");
+	}
 
 	//Freq=???
 	uint32_t freq = rfm95_read(dev, 0x06);

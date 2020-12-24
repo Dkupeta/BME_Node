@@ -1,0 +1,14 @@
+lorawan.c:44:6:lorawan_init	16	static
+lorawan.c:49:6:lorawan_set_keys	24	static
+lorawan.c:76:10:lorawan_send_data	72	static
+lorawan.c:188:6:lorawan_encrypt_payload	40	static
+lorawan.c:264:6:lorawan_calculate_mic	40	static
+lorawan.c:408:6:lorawan_generate_keys	32	static
+lorawan.c:463:6:lorawan_shift_left	24	static
+lorawan.c:495:6:lorawan_xor	40	static
+lorawan.c:512:6:lorawan_aes_encrypt	80	static
+lorawan.c:593:6:lorawan_aes_add_round_key	40	static
+lorawan.c:613:9:lorawan_aes_sub_byte	16	static
+lorawan.c:633:6:lorawan_aes_shift_rows	24	static
+lorawan.c:666:6:lorawan_aes_mix_columns	48	static
+lorawan.c:698:6:lorawan_aes_calculate_round_key	48	static

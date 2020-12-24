@@ -157,7 +157,7 @@ uint32_t lorawan_send_data(lorawan_t *lorawan, uint8_t *data, unsigned len, uint
 	lorawan_calculate_mic(lorawan, RFM_Data, MIC, RFM_Package_Length, frame_counter_up, Direction);
 
 	//load MIC in package
-	for(i = o; i < 4; i++)
+	for(i = 0; i < 4; i++)
 	{
 		RFM_Data[i + RFM_Package_Length] = MIC[i];
 	}
@@ -185,7 +185,7 @@ uint32_t lorawan_send_data(lorawan_t *lorawan, uint8_t *data, unsigned len, uint
  * Encryption
  * *****************************
  */
-void lorawan_encryption_payload()
+void lorawan_encrypt_payload(lorawan_t *lorawan, uint8_t *data, unsigned len,uint16_t frame_counter, unsigned char direction)
 {
 	unsigned char i = 0x00;
 	unsigned char j;
@@ -195,32 +195,542 @@ void lorawan_encryption_payload()
 	//shared RAM with Send_Data()
 	unsigned char *Block_A = Buffer;
 
+	//Calc number of blocks
+	Number_of_Blocks = len / 16;
+	Incomplete_Block_Size = len % 16;
+	if(Incomplete_Block_Size != 0)
+	{
+		Number_of_Blocks++;
+	}
+
+	for(i = 1; i <= Number_of_Blocks; i++)
+	{
+		Block_A[0] = 0x01;
+		Block_A[1] = 0x00;
+		Block_A[2] = 0x00;
+		Block_A[3] = 0x00;
+		Block_A[4] = 0x00;
+
+		Block_A[5] = direction;
+
+		Block_A[6] = lorawan->DevAddr[3];
+		Block_A[7] = lorawan->DevAddr[2];
+		Block_A[8] = lorawan->DevAddr[1];
+		Block_A[9] = lorawan->DevAddr[0];
+
+		Block_A[10] = (frame_counter & 0x00FF);
+		Block_A[11] = ((frame_counter >> 8) & 0x00FF);
+		Block_A[12] = 0x00;// ((frame_counter >> 16) & 0x00FF);
+		Block_A[13] = 0x00;// ((frame_counter >> 24) & 0x00FF);
+
+		Block_A[14] = 0x00;
+		Block_A[15]	= i;
+
+		//calcS
+		lorawan_aes_encrypt(lorawan, Block_A, lorawan->AppSkey); //original
+
+		//check last block
+		if(i != Number_of_Blocks)
+		{
+			for(j = 0; j < 16; j++)
+			{
+				*data ^= Block_A[j];
+				data++;
+			}
+		}
+		else
+		{
+			if(Incomplete_Block_Size == 0)
+			{
+				Incomplete_Block_Size = 16;
+			}
+			for(j = 0; j< Incomplete_Block_Size; j++)
+			{
+				*data ^= Block_A[j];
+				data++;
+			}
+		}
+	}
+}
+
+//global variables
+
+unsigned char Key_K1[16];
+unsigned char Key_K2[16];
+unsigned char Old_Data[16];
+unsigned char New_Data[16];
+unsigned char Block_B[16];
+
+void lorawan_calculate_mic(lorawan_t *lorawan,uint8_t *data, uint8_t *final_mic, unsigned len, uint16_t frame_counter, unsigned char direction)
+{
+	unsigned char i;
+
+	memset(Key_K1, 0, sizeof(Key_K1));
+	memset(Key_K2, 0, sizeof(Key_K2));
+
+	//unsigned char Data_Copy[16];
+
+	memset(Old_Data, 0, sizeof(Old_Data));
+	memset(New_Data, 0, sizeof(New_Data));
+
+	unsigned char Number_of_Blocks = 0x00;
+	unsigned char Incomplete_Block_Size = 0x00;
+	unsigned char Block_Counter = 0x01;
+
+	//create block B
+	Block_B[0] = 0x49;
+	Block_B[1] = 0x00;
+	Block_B[2] = 0x00;
+	Block_B[3] = 0x00;
+	Block_B[4] = 0x00;
+
+	Block_B[5] = direction;
+
+	Block_B[6] = lorawan->DevAddr[3];
+	Block_B[7] = lorawan->DevAddr[2];
+	Block_B[8] = lorawan->DevAddr[1];
+	Block_B[9] = lorawan->DevAddr[0];
+
+	Block_B[10] = (frame_counter & 0x00FF);
+	Block_B[11] = ((frame_counter >> 8) & 0x00FF);
+
+	Block_B[12] = 0x00;// ((frame_counter >> 16) & 0x00FF);
+	Block_B[13] = 0x00;// ((frame_counter >> 24) & 0x00FF);
+
+	Block_B[14] = 0x00;
+	Block_B[15]	= len;
+
+	//calc number of blocks and blocksize of last block
+	Number_of_Blocks = len / 16;
+	Incomplete_Block_Size = len % 16;
+
+	if(Incomplete_Block_Size != 0)
+	{
+		Number_of_Blocks++;
+	}
+	lorawan_generate_keys(lorawan, Key_K1,Key_K2);
+
+	//do calc on block b0
+	//do AES Encr
+	lorawan_aes_encrypt(lorawan, Block_B, lorawan->NwkSkey);
+
+	//copy block b to old data
+	for(i = 0; i < 16; i++)
+	{
+		Old_Data[i] = Block_B[i];
+	}
+
+	//full calc until n-1 message block
+	while(Block_Counter < Number_of_Blocks)
+	{
+		//copy data into array
+		for(i = 0; i < 16; i++)
+		{
+			New_Data[i] = *data;
+			data++;
+		}
+
+	    //Perform XOR with old data
+	    lorawan_xor(lorawan, New_Data, Old_Data);
+
+	    //Perform AES encryption
+	    lorawan_aes_encrypt(lorawan, New_Data, lorawan->NwkSkey);
+
+	    //Copy New_Data to Old_Data
+	    for(i = 0; i < 16; i++)
+	    {
+	      Old_Data[i] = New_Data[i];
+	    }
+
+	    //Raise Block counter
+	    Block_Counter++;
+	}
+	//perform calc on last block
+	//Perform calculation on last block
+	//Check if data length is a multiple of 16
+	if(Incomplete_Block_Size == 0)
+	{
+		//Copy last data into array
+		for(i = 0; i < 16; i++)
+		{
+			New_Data[i] = *data;
+			data++;
+		}
+
+		//Perform XOR with Key 1
+		lorawan_xor(lorawan, New_Data, Key_K1);
+
+		//Perform XOR with old data
+		lorawan_xor(lorawan, New_Data, Old_Data);
+
+		//Perform last AES routine
+		// read NwkSkey
+		lorawan_aes_encrypt(lorawan, New_Data, lorawan->NwkSkey);
+	}
+	else
+	{
+		//Copy the remaining data and fill the rest
+		for(i =  0; i < 16; i++)
+		{
+			if(i < Incomplete_Block_Size)
+			{
+				New_Data[i] = *data;
+				data++;
+			}
+			if(i == Incomplete_Block_Size)
+			{
+				New_Data[i] = 0x80;
+			}
+			if(i > Incomplete_Block_Size)
+			{
+				New_Data[i] = 0x00;
+			}
+		}
+
+		//Perform XOR with Key 2
+		lorawan_xor(lorawan, New_Data, Key_K2);
+
+		//Perform XOR with Old data
+		lorawan_xor(lorawan, New_Data, Old_Data);
+
+		//Perform last AES routine
+		lorawan_aes_encrypt(lorawan, New_Data, lorawan->NwkSkey);
+	}
+
+	final_mic[0] = New_Data[0];
+	final_mic[1] = New_Data[1];
+	final_mic[2] = New_Data[2];
+	final_mic[3] = New_Data[3];
 }
 
 
 
+void lorawan_generate_keys(lorawan_t *lorawan, uint8_t *K1, uint8_t *K2)
+{
+  unsigned char i;
+  unsigned char MSB_Key;
+
+  //Encrypt the zeros in K1 with the NwkSkey
+  lorawan_aes_encrypt(lorawan, K1, lorawan->NwkSkey);
+
+  //Create K1
+  //Check if MSB is 1
+  if((K1[0] & 0x80) == 0x80)
+  {
+    MSB_Key = 1;
+  }
+  else
+  {
+    MSB_Key = 0;
+  }
+
+  //Shift K1 one bit left
+  lorawan_shift_left(lorawan, K1);
+
+  //if MSB was 1
+  if(MSB_Key == 1)
+  {
+    K1[15] ^= 0x87;
+  }
+
+  //Copy K1 to K2
+  for( i = 0; i < 16; i++)
+  {
+    K2[i] = K1[i];
+  }
+
+  //Check if MSB is 1
+  if((K2[0] & 0x80) == 0x80)
+  {
+    MSB_Key = 1;
+  }
+  else
+  {
+    MSB_Key = 0;
+  }
+
+  //Shift K2 one bit left
+  lorawan_shift_left(lorawan, K2);
+
+  //Check if MSB was 1
+  if(MSB_Key == 1)
+  {
+    K2[15] ^= 0x87;
+  }
+}
 
 
+void lorawan_shift_left(lorawan_t *lorawan, uint8_t *data)
+{
+  unsigned char i;
+  unsigned char Overflow = 0;
+  //unsigned char High_Byte, Low_Byte;
+
+  for(i = 0; i < 16; i++)
+  {
+    //Check for overflow on next byte except for the last byte
+    if(i < 15)
+    {
+      //Check if upper bit is one
+      if((data[i+1] & 0x80) == 0x80)
+      {
+        Overflow = 1;
+      }
+      else
+      {
+        Overflow = 0;
+      }
+    }
+    else
+    {
+      Overflow = 0;
+    }
+
+    //Shift one left
+    data[i] = (data[i] << 1) + Overflow;
+  }
+}
 
 
+void lorawan_xor(lorawan_t *lorawan, uint8_t *new_data, uint8_t *old_data)
+{
+  unsigned char i;
+
+  for(i = 0; i < 16; i++)
+  {
+    new_data[i] ^= old_data[i];
+  }
+}
 
 
+/*
+*****************************************************************************************
+* Title         : AES_Encrypt
+* Description  :
+*****************************************************************************************
+*/
+void lorawan_aes_encrypt(lorawan_t *lorawan, uint8_t *data, uint8_t *key)
+{
+  unsigned char Row, Column, Round = 0;
+  unsigned char Round_Key[16];
+  unsigned char State[4][4];
+
+  // Copy input to State array
+  for( Column = 0; Column < 4; Column++ )
+  {
+    for( Row = 0; Row < 4; Row++ )
+    {
+      State[Row][Column] = data[Row + (Column << 2)];
+    }
+  }
+
+  // Copy key to round key
+  memcpy(Round_Key, key, 16);
+
+  // Add round key
+  lorawan_aes_add_round_key(lorawan, Round_Key, State);
+
+  // Perform 9 full rounds with mixed columns
+  for( Round = 1 ; Round < 10 ; Round++ )
+  {
+    //  Perform Byte substitution with S table
+    for( Column = 0 ; Column < 4 ; Column++ )
+    {
+      for( Row = 0 ; Row < 4 ; Row++ )
+      {
+        State[Row][Column] = lorawan_aes_sub_byte(lorawan, State[Row][Column]);
+      }
+    }
+
+    //  Perform Row Shift
+    lorawan_aes_shift_rows(lorawan, State);
+
+    //  Mix Collums
+    lorawan_aes_mix_columns(lorawan, State);
+
+    //  Calculate new round key
+    lorawan_aes_calculate_round_key(lorawan, Round, Round_Key);
+
+        //  Add the round key to the Round_key
+    lorawan_aes_add_round_key(lorawan, Round_Key, State);
+  }
+
+  //  Perform byte substitution with S table without mix columns
+  for( Column = 0 ; Column < 4 ; Column++ )
+  {
+    for( Row = 0; Row < 4; Row++ )
+    {
+      State[Row][Column] = lorawan_aes_sub_byte(lorawan, State[Row][Column]);
+    }
+  }
+
+  //  Shift rows
+  lorawan_aes_shift_rows(lorawan, State);
+
+  //  Calculate new round key
+  lorawan_aes_calculate_round_key(lorawan, Round, Round_Key);
+
+    //  Add round key
+  lorawan_aes_add_round_key(lorawan, Round_Key, State);
+
+  //  Copy the State into the data array
+  for( Column = 0; Column < 4; Column++ )
+  {
+    for( Row = 0; Row < 4; Row++ )
+    {
+      data[Row + (Column << 2)] = State[Row][Column];
+    }
+  }
+} // AES_Encrypt
 
 
+/*
+*****************************************************************************************
+* Title         : AES_Add_Round_Key
+* Description :
+*****************************************************************************************
+*/
+void lorawan_aes_add_round_key(lorawan_t *lorawan, uint8_t *Round_Key, uint8_t (*State)[4])
+{
+  unsigned char Row, Column;
+
+  for(Column = 0; Column < 4; Column++)
+  {
+    for(Row = 0; Row < 4; Row++)
+    {
+      State[Row][Column] ^= Round_Key[Row + (Column << 2)];
+    }
+  }
+} // AES_Add_Round_Key
 
 
+/*
+*****************************************************************************************
+* Title         : AES_Sub_Byte
+* Description :
+*****************************************************************************************
+*/
+uint8_t lorawan_aes_sub_byte(lorawan_t *lorawan, uint8_t byte)
+{
+//  unsigned char S_Row,S_Column;
+//  unsigned char S_Byte;
+//
+//  S_Row    = ((Byte >> 4) & 0x0F);
+//  S_Column = ((Byte >> 0) & 0x0F);
+//  S_Byte   = S_Table [S_Row][S_Column];
+
+  return S_Table [ ((byte >> 4) & 0x0F) ] [ ((byte >> 0) & 0x0F) ]; // original
+  //return pgm_read_byte(&(S_Table [((byte >> 4) & 0x0F)] [((byte >> 0) & 0x0F)]));
+} //    AES_Sub_Byte
 
 
+/*
+*****************************************************************************************
+* Title         : AES_Shift_Rows
+* Description :
+*****************************************************************************************
+*/
+void lorawan_aes_shift_rows(lorawan_t *lorawan, uint8_t (*state)[4])
+{
+  unsigned char Buffer;
+
+  //Store firt byte in buffer
+  Buffer      = state[1][0];
+  //Shift all bytes
+  state[1][0] = state[1][1];
+  state[1][1] = state[1][2];
+  state[1][2] = state[1][3];
+  state[1][3] = Buffer;
+
+  Buffer      = state[2][0];
+  state[2][0] = state[2][2];
+  state[2][2] = Buffer;
+  Buffer      = state[2][1];
+  state[2][1] = state[2][3];
+  state[2][3] = Buffer;
+
+  Buffer      = state[3][3];
+  state[3][3] = state[3][2];
+  state[3][2] = state[3][1];
+  state[3][1] = state[3][0];
+  state[3][0] = Buffer;
+}   //  AES_Shift_Rows
 
 
+/*
+*****************************************************************************************
+* Title         : AES_Mix_Columns
+* Description :
+*****************************************************************************************
+*/
+void lorawan_aes_mix_columns(lorawan_t *lorawan, uint8_t (*state)[4])
+{
+  uint8_t Row, Column;
+  uint8_t a[4], b[4];
+
+  for(Column = 0; Column < 4; Column++)
+  {
+    for(Row = 0; Row < 4; Row++)
+    {
+      a[Row] =  state[Row][Column];
+      b[Row] = (state[Row][Column] << 1);
+
+      if((state[Row][Column] & 0x80) == 0x80)
+      {
+        b[Row] ^= 0x1B;
+      }
+    }
+
+    state[0][Column] = b[0] ^ a[1] ^ b[1] ^ a[2] ^ a[3];
+    state[1][Column] = a[0] ^ b[1] ^ a[2] ^ b[2] ^ a[3];
+    state[2][Column] = a[0] ^ a[1] ^ b[2] ^ a[3] ^ b[3];
+    state[3][Column] = a[0] ^ b[0] ^ a[1] ^ a[2] ^ b[3];
+  }
+}   //  AES_Mix_Collums
 
 
+/*
+*****************************************************************************************
+* Title         : AES_Calculate_Round_Key
+* Description :
+*****************************************************************************************
+*/
+void lorawan_aes_calculate_round_key(lorawan_t *lorawan, uint8_t round, uint8_t *round_key)
+{
+  uint8_t i, j, b, Rcon;
+  uint8_t Temp[4];
 
+  //Calculate Rcon
+  Rcon = 0x01;
+  while(round != 1)
+  {
+    b = Rcon & 0x80;
+    Rcon = Rcon << 1;
 
+    if(b == 0x80)
+    {
+      Rcon ^= 0x1b;
+    }
+    round--;
+  }
 
+  //  Calculate first Temp
+  //  Copy last byte from previous key and substitute the byte, but shift the array contents around by 1.
+  Temp[0] = lorawan_aes_sub_byte(lorawan, round_key[12 + 1]);
+  Temp[1] = lorawan_aes_sub_byte(lorawan, round_key[12 + 2]);
+  Temp[2] = lorawan_aes_sub_byte(lorawan, round_key[12 + 3]);
+  Temp[3] = lorawan_aes_sub_byte(lorawan, round_key[12 + 0]);
 
+  //  XOR with Rcon
+  Temp[0] ^= Rcon;
 
-
-
-
-
+  //  Calculate new key
+  for(i = 0; i < 4; i++)
+  {
+    for(j = 0; j < 4; j++)
+    {
+      round_key[j + (i << 2)] ^= Temp[j];
+      Temp[j]                  = round_key[j + (i << 2)];
+    }
+  }
+}   //  AES_Calculate_Round_Key

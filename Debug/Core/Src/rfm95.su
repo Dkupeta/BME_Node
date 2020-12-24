@@ -1,0 +1,7 @@
+rfm95.c:14:9:rand1	8	static
+rfm95.c:22:6:srand1	16	static
+rfm95.c:44:6:rfm95_freq	32	static
+rfm95.c:76:9:rfm95_init	32	static
+rfm95.c:165:9:rfm95_write	24	static
+rfm95.c:179:9:rfm95_read	32	static
+rfm95.c:192:10:rfm95_send	32	static

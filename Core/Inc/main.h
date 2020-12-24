@@ -29,6 +29,19 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l0xx_hal.h"
+#include "stm32l0xx_ll_adc.h"
+#include "stm32l0xx_ll_lpuart.h"
+#include "stm32l0xx_ll_rcc.h"
+#include "stm32l0xx_hal.h"
+#include "stm32l0xx_ll_spi.h"
+#include "stm32l0xx_ll_system.h"
+#include "stm32l0xx_ll_gpio.h"
+#include "stm32l0xx_ll_exti.h"
+#include "stm32l0xx_ll_bus.h"
+#include "stm32l0xx_ll_cortex.h"
+#include "stm32l0xx_ll_utils.h"
+#include "stm32l0xx_ll_pwr.h"
+#include "stm32l0xx_ll_dma.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -58,6 +71,26 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define TX_READY_Pin LL_GPIO_PIN_0
+#define TX_READY_GPIO_Port GPIOA
+#define TX_Pin LL_GPIO_PIN_1
+#define TX_GPIO_Port GPIOA
+#define WKUP3_Pin LL_GPIO_PIN_2
+#define WKUP3_GPIO_Port GPIOA
+#define BME_CS_Pin LL_GPIO_PIN_3
+#define BME_CS_GPIO_Port GPIOA
+#define RFM_CS_Pin LL_GPIO_PIN_4
+#define RFM_CS_GPIO_Port GPIOA
+#define LED_Pin LL_GPIO_PIN_8
+#define LED_GPIO_Port GPIOA
+#define SWDIO_Pin LL_GPIO_PIN_13
+#define SWDIO_GPIO_Port GPIOA
+#define SWSLK_Pin LL_GPIO_PIN_14
+#define SWSLK_GPIO_Port GPIOA
+#define RFM_D0_Pin LL_GPIO_PIN_5
+#define RFM_D0_GPIO_Port GPIOB
+#define RFM_D5_Pin LL_GPIO_PIN_6
+#define RFM_D5_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
