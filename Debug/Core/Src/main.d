@@ -28,17 +28,19 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_adc.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_lpuart.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rcc.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_spi.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_system.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_gpio.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_exti.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_crs.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_system.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_exti.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_cortex.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_utils.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_pwr.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_spi.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_gpio.h \
  ../Core/Inc/bme280.h ../Core/Inc/bme280_defs.h ../Core/Inc/rfm95.h \
- ../Core/Inc/main.h ../Core/Inc/lorawan.h ../Core/Inc/rfm95.h
+ ../Core/Inc/main.h ../Core/Inc/lorawan.h ../Core/Inc/rfm95.h \
+ ../Core/Inc/secconfig.h
 
 ../Core/Inc/main.h:
 
@@ -100,15 +102,13 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rcc.h:
 
-../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_spi.h:
+../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_crs.h:
+
+../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h:
 
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_system.h:
 
-../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_gpio.h:
-
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_exti.h:
-
-../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h:
 
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_cortex.h:
 
@@ -117,6 +117,10 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_pwr.h:
 
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h:
+
+../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_spi.h:
+
+../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_gpio.h:
 
 ../Core/Inc/bme280.h:
 
@@ -129,3 +133,5 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/lorawan.h:
 
 ../Core/Inc/rfm95.h:
+
+../Core/Inc/secconfig.h:

@@ -28,15 +28,16 @@ Core/Src/rfm95.o: ../Core/Src/rfm95.c ../Core/Inc/rfm95.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_adc.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_lpuart.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rcc.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_spi.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_system.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_gpio.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_exti.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_crs.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_system.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_exti.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_cortex.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_utils.h \
  ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_pwr.h \
- ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_spi.h \
+ ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_gpio.h
 
 ../Core/Inc/rfm95.h:
 
@@ -100,15 +101,13 @@ Core/Src/rfm95.o: ../Core/Src/rfm95.c ../Core/Inc/rfm95.h \
 
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rcc.h:
 
-../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_spi.h:
+../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_crs.h:
+
+../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h:
 
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_system.h:
 
-../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_gpio.h:
-
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_exti.h:
-
-../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h:
 
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_cortex.h:
 
@@ -117,3 +116,7 @@ Core/Src/rfm95.o: ../Core/Src/rfm95.c ../Core/Inc/rfm95.h \
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_pwr.h:
 
 ../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h:
+
+../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_spi.h:
+
+../Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_gpio.h:

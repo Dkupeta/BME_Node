@@ -101,8 +101,8 @@ uint8_t rfm95_init(rfm95_t *dev, uint32_t seed)
 
 	if(!max_wait)
 	{
-		puts("dio5!");
-		//putstr("dio0 ");
+		//puts("dio5!");
+		putstr("dio0 ");
 	}
 
 	// (*dev->delay)(10);
@@ -211,8 +211,8 @@ uint32_t rfm95_send(rfm95_t *dev, uint8_t *buffer, uint32_t len)
 
 	if(!max_wait)
 	{
-		puts("dio5! ");
-		//putstr("dio0 ");
+		//puts("dio5! ");
+		putstr("dio0 ");
 		//(*dev->delay)(10);
 	}
 
@@ -272,8 +272,8 @@ uint32_t rfm95_send(rfm95_t *dev, uint8_t *buffer, uint32_t len)
 	}
 	if(!max_wait)
 	{
-		puts("dio0 ");
-		//putstr("dio0 ");
+		//puts("dio0 ");
+		putstr("dio0 ");
 	}
 
 	//Freq=???

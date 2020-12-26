@@ -25,7 +25,7 @@
 #include <bme280.h>
 #include <rfm95.h>
 #include <lorawan.h>
-//#include <secconfig.h>
+#include <secconfig.h>
 
 /* USER CODE END Includes */
 
@@ -96,7 +96,220 @@ static void MX_RTC_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void putstr(const char *str)
+{
+	if(frame_counter > QUIET_FRAME)
+		return;
+	LL_LPUART_Enable(LPUART1);
+	while(*str)
+	{
+		while(!LL_LPUART_IsActiveFlag_TXE(LPUART1));
+		LL_LPUART_TransmitData8(LPUART1, (uint8_t)*str++);
+	}
+	while(!LL_LPUART_IsActiveFlag_TC(LPUART1));
+	LL_LPUART_Disable(LPUART1);
+}
 
+
+void putul(unsigned long u)
+{
+	if(frame_counter > QUIET_FRAME)
+		return;
+	char num[11];
+	char *d = &num[sizeof(num) - 1];
+	*d = '\0';
+	if(u)
+	{
+		while(u)
+		{
+			*(--d) = '0' + u % 10;
+			u /= 10;
+		}
+	}
+	else
+	{
+		*(--d) = '0';
+	}
+	putstr(d);
+}
+
+void puthex(uint8_t val)
+{
+	if(frame_counter > QUIET_FRAME)
+		return;
+	static char hex[] = "0123456789abcedf";
+	char msg[3];
+	msg[0] = hex[val >> 4];
+	msg[1] = hex[val & 0xF];
+	msg[2] = '\0';
+	putstr(msg);
+}
+
+int8_t duplexSpi(uint8_t dev, uint8_t addr, uint8_t *data, uint16_t len)
+{
+	LL_SPI_Enable(SPI1);
+	LL_GPIO_ResetOutputPin(pins[dev].port, pins[dev].pin);
+
+	LL_SPI_TransmitData8(SPI1, addr);
+
+	while(!LL_SPI_IsActiveFlag_RXNE(SPI1)); 		 // wait for rx to finish
+	LL_SPI_ReceiveData8(SPI1);      	       		 // avoid overflow
+
+	while(len--)
+	{
+		while (!LL_SPI_IsActiveFlag_TXE(SPI1));  // wait for tx to finish
+	    LL_SPI_TransmitData8(SPI1, *data);       // send data or generate clock for slave
+
+	    while (!LL_SPI_IsActiveFlag_RXNE(SPI1)); // wait for rx to finish
+	    *data = LL_SPI_ReceiveData8(SPI1);       // read receive result
+	    data++;
+	}
+
+	while (LL_SPI_IsActiveFlag_BSY(SPI1));
+	LL_GPIO_SetOutputPin(pins[dev].port, pins[dev].pin);
+	LL_SPI_Disable(SPI1);
+
+	return 0;
+}
+
+uint8_t readPin(uint8_t dev)
+{
+	return LL_GPIO_IsInputPinSet(pins[dev].port, pins[dev].pin);
+}
+
+uint8_t *serialize(uint8_t *data, uint32_t value, size_t size)
+{
+	while(size--)
+	{
+		*(data++) = value & 0xFF;
+		value >>= 8;
+	}
+	return data;
+}
+
+uint16_t getVdda()
+{
+	LL_ADC_Enable(ADC1);
+
+	while(!LL_ADC_IsActiveFlag_ADRDY(ADC1));
+	LL_ADC_REG_StartConversion(ADC1);
+	while(!LL_ADC_IsActiveFlag_EOC(ADC1));
+
+	uint16_t mV = LL_ADC_REG_ReadConversionData12(ADC1);
+	mV = VREFINT_CAL_VREF*(*VREFINT_CAL_ADDR)/mV;
+
+	while(!LL_ADC_IsActiveFlag_EOS(ADC1));
+	LL_ADC_Disable(ADC1);
+
+	return mV;
+}
+
+void bme_setup()
+{
+	bme280_dev.dev_id = BME280_CS_PIN_ID;
+	bme280_dev.intf = BME280_SPI_INTF;
+	bme280_dev.read = duplexSpi;
+	bme280_dev.write = duplexSpi;
+	bme280_dev.delay_ms = LL_mDelay;
+	int bme_init = 0;
+
+	while(!bme_init)
+	{
+		if(bme280_init(&bme280_dev) == BME280_OK)
+		{
+			bme280_dev.settings.osr_h = BME280_OVERSAMPLING_1X;
+			bme280_dev.settings.osr_p = BME280_OVERSAMPLING_16X;
+			bme280_dev.settings.osr_t = BME280_OVERSAMPLING_2X;
+			bme280_dev.settings.filter = BME280_FILTER_COEFF_16;
+
+			if(bme280_set_sensor_settings(BME280_OSR_PRESS_SEL | BME280_OSR_TEMP_SEL | BME280_OSR_HUM_SEL | BME280_FILTER_SEL, &bme280_dev) == BME280_OK)
+			{
+				bme280_delay = bme280_cal_meas_delay(&bme280_dev.settings);
+				putstr("BME delayMs: ");
+				putul(bme280_delay);
+				if(bme280_delay)
+				{
+					bme_init = 1;
+				}
+			}
+			else
+			{
+				putstr("BME Setup Error! \n");
+			}
+		}
+		else
+		{
+			putstr("BME init error! \n");
+		}
+
+		if(!bme_init)
+		{
+			LL_mDelay(1000);
+		}
+	}
+}
+
+
+
+int bme_read()
+{
+	bme280_data.humidity = 0;
+	if(bme280_set_sensor_mode(BME280_FORCED_MODE, &bme280_dev) == BME280_OK)
+	{
+		bme280_dev.delay_ms(bme280_delay);
+		bme280_get_sensor_data(BME280_ALL, &bme280_data, &bme280_dev);
+	}
+
+	return 		bme280_data.humidity 	> 		   	0 && bme280_data.humidity 		<=	100000
+			&&	bme280_data.pressure 	> 		 81000 && bme280_data.pressure 		<  110000
+			&& bme280_data.temperature 	>		-50000 && bme280_data.temperature	<= 9500;
+}
+
+void bme_print()
+{
+	putstr("Pa");
+
+	putstr("T: ");
+	putul(bme280_data.temperature);
+
+	putstr("'cÂ°C, H:");
+	putul(bme280_data.humidity);
+
+	putstr("m%, P:");
+	putul(bme280_data.pressure);
+}
+
+void rfm_setup(uint32_t seed)
+{
+	rfm95_dev.nss_pin_id = RFM95_NSS_PIN_ID;
+	rfm95_dev.dio0_pin_id = RFM95_DIO0_PIN_ID;
+	rfm95_dev.dio5_pin_id = RFM95_DIO5_PIN_ID;
+
+	rfm95_dev.spi_read = duplexSpi;
+	rfm95_dev.spi_write = duplexSpi;
+	rfm95_dev.delay = LL_mDelay;
+	rfm95_dev.pin_read = readPin;
+
+
+	while(rfm95_ver != 0x12)
+	{
+		rfm95_ver = rfm95_init(&rfm95_dev, seed);
+	}
+
+	lorawan_init(&lorawan, &rfm95_dev	);
+	lorawan_set_keys(&lorawan, NwkSkey, AppSkey, DevAddr);
+
+	//print test pack
+	if(0)
+	{
+		uint8_t buf[8];
+		for(size_t i = 0;i < sizeof(buf); i++)
+		{
+			buf[i] = i;
+		}
+		lorawan_send_data(&lorawan, buf, sizeof(buf), 0);
+	}
+}
 
 /* USER CODE END 0 */
 
@@ -134,6 +347,43 @@ int main(void)
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
+  LL_GPIO_SetOutputPin(pins[BME280_CS_PIN_ID].port, pins[BME280_CS_PIN_ID].pin);
+  LL_GPIO_SetOutputPin(pins[RFM95_NSS_PIN_ID].port, pins[RFM95_NSS_PIN_ID].pin);
+
+  frame_counter = (uint16_t)HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR0);
+
+  //Att: to LED to save power
+  if(frame_counter <= QUIET_FRAME)
+  {
+	  LL_GPIO_SetOutputPin(LED_GPIO_Port, LED_Pin);
+  }
+
+  putstr("\nStart BME_IoT_Node" __DATE__ " " __TIME__ "device 0x");
+  for(unsigned i = 0; i < 4; i++)
+  {
+	  puthex(DevAddr[i]);
+  }
+
+  if(__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET)
+  {
+	  putstr("from Standby");
+	  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
+  }
+  else
+  {
+	  putstr("from RESET. ");
+
+	  //     At first power on give a button cell a bit of time
+	  //     to charge a capacitor before sending something to prevent boot loop
+
+	  LL_mDelay(5000);
+  }
+
+  rfm_setup(frame_counter);
+  bme_setup();
+
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -153,46 +403,50 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  LL_FLASH_SetLatency(LL_FLASH_LATENCY_0);
+  while(LL_FLASH_GetLatency()!= LL_FLASH_LATENCY_0)
+  {
+  }
+  LL_PWR_SetRegulVoltageScaling(LL_PWR_REGU_VOLTAGE_SCALE1);
+  LL_RCC_LSI_Enable();
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_MSI;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSICalibrationValue = 0;
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_5;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+   /* Wait till LSI is ready */
+  while(LL_RCC_LSI_IsReady() != 1)
   {
-    Error_Handler();
-  }
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  }
+  LL_RCC_MSI_Enable();
+
+   /* Wait till MSI is ready */
+  while(LL_RCC_MSI_IsReady() != 1)
+  {
+
+  }
+  LL_RCC_MSI_SetRange(LL_RCC_MSIRANGE_5);
+  LL_RCC_MSI_SetCalibTrimming(0);
+  LL_PWR_EnableBkUpAccess();
+  LL_RCC_ForceBackupDomainReset();
+  LL_RCC_ReleaseBackupDomainReset();
+  LL_RCC_SetRTCClockSource(LL_RCC_RTC_CLKSOURCE_LSI);
+  LL_RCC_EnableRTC();
+  LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_1);
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
+  LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_1);
+  LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_MSI);
+
+   /* Wait till System clock is ready */
+  while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_MSI)
+  {
+
+  }
+  LL_SetSystemCoreClock(2097000);
+
+   /* Update the time base */
+  if (HAL_InitTick (TICK_INT_PRIORITY) != HAL_OK)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_LPUART1|RCC_PERIPHCLK_RTC;
-  PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_PCLK1;
-  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  LL_RCC_SetLPUARTClockSource(LL_RCC_LPUART1_CLKSOURCE_PCLK1);
 }
 
 /**
@@ -212,10 +466,6 @@ static void MX_ADC_Init(void)
 
   /* Peripheral clock enable */
   LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_ADC1);
-
-  /* ADC interrupt Init */
-  NVIC_SetPriority(ADC1_COMP_IRQn, 0);
-  NVIC_EnableIRQ(ADC1_COMP_IRQn);
 
   /* USER CODE BEGIN ADC_Init 1 */
 
